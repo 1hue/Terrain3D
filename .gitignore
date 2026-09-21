@@ -17,6 +17,7 @@ doc/art/
 # Godot-cpp
 src/gen/
 compile_commands.json
+extension_api.json
 
 # Godot-specific ignores (Include script cache. See godot issue #75388)
 /project/.import/
