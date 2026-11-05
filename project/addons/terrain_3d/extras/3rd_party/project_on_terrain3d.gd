@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 # This script is an addon for HungryProton's Scatter https://github.com/HungryProton/scatter
-# It provides a `Project on Terrain3D` modifier, which allows Scatter 
+# It provides a `Project on Terrain3D` modifier, which allows Scatter
 # to detect the terrain height from Terrain3D without using collision.
 #
 # Copy this file into /addons/proton_scatter/src/modifiers
@@ -61,12 +61,12 @@
 		#"The ID of the texture to place objects on (0-31). Objects will only be placed on this texture.")
 		#
 	#p = documentation.add_parameter("Not Target Texture")
-	#p.set_type("bool") 
+	#p.set_type("bool")
 	#p.set_description(
 		#"If true, objects will be placed on all textures EXCEPT the target texture.")
 		#
 	#p = documentation.add_parameter("Texture Threshold")
-	#p.set_type("float") 
+	#p.set_type("float")
 	#p.set_description("The blend value required for placement on the texture.")
 #
 #

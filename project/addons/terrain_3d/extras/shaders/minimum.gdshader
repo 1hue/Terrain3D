@@ -9,9 +9,9 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 
 // Inline Functions
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
-    #define fma(a, b, c) ((a) * (b) + (c))
-    #define dFdxCoarse(a) dFdx(a)
-    #define dFdyCoarse(a) dFdy(a)
+	#define fma(a, b, c) ((a) * (b) + (c))
+	#define dFdxCoarse(a) dFdx(a)
+	#define dFdyCoarse(a) dFdy(a)
 #endif
 
 // Private uniforms
@@ -73,8 +73,8 @@ ivec3 get_index_coord(const vec2 uv) {
 	// Editor dummies are negative; keep them != -1 so the shader still sees a region
 	int is_dummy = bounds * int(map_val < 0);
 	int layer_index = is_region * raw_index
-	               + is_dummy * (map_val - 1)
-	               - (1 - is_region - is_dummy);
+				   + is_dummy * (map_val - 1)
+				   - (1 - is_region - is_dummy);
 	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
