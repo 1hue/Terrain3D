@@ -42,9 +42,6 @@ void Terrain3DMaterial::_preload_shaders() {
 #include "shaders/macro_variation.glsl"
 			, "macro_variation");
 	_parse_shader(
-#include "shaders/max_regions.glsl"
-			, "macro_variation");
-	_parse_shader(
 #include "shaders/overlays.glsl"
 			, "overlays");
 	_parse_shader(
@@ -53,9 +50,6 @@ void Terrain3DMaterial::_preload_shaders() {
 	_parse_shader(
 #include "shaders/projection.glsl"
 			, "projection");
-	_parse_shader(
-#include "shaders/samplers.glsl"
-			, "samplers");
 
 	// Load main code
 	_shader_code["main"] = String(
@@ -109,7 +103,7 @@ void Terrain3DMaterial::_parse_shader(const String &p_shader, const String &p_na
  *	returns a shader string with inserts applied
  *  Skips `EDITOR_*` and `DEBUG_*` inserts
  */
-String Terrain3DMaterial::_apply_inserts(const String &p_shader, const Array &p_excludes) const {
+String Terrain3DMaterial::_apply_inserts(const String &p_shader, const PackedStringArray &p_excludes) const {
 	PackedStringArray parsed = p_shader.split("//INSERT:");
 	String shader;
 	for (int i = 0; i < parsed.size(); i++) {
@@ -126,8 +120,10 @@ String Terrain3DMaterial::_apply_inserts(const String &p_shader, const Array &p_
 			}
 			String id = segment[0].strip_edges();
 
-			// Process the insert
-			if (!id.is_empty() && !p_excludes.has(id) && _shader_code.has(id)) {
+			// Editor markers stay for _inject_editor_code
+			if (id == "EDITOR_GLOBALS" || id == "EDITOR_FRAGMENT") {
+				shader += "//INSERT: " + id + "\n";
+			} else if (!id.is_empty() && !p_excludes.has(id) && _shader_code.has(id)) {
 				if (!id.begins_with("DEBUG_") && !id.begins_with("EDITOR_")) {
 					String str = _shader_code[id];
 					shader += str;
@@ -141,39 +137,7 @@ String Terrain3DMaterial::_apply_inserts(const String &p_shader, const Array &p_
 
 String Terrain3DMaterial::_generate_shader_code() const {
 	LOG(INFO, "Generating default shader code");
-	Array excludes;
-	switch (_max_regions) {
-		case MAX_REGIONS_64:
-			excludes.push_back("MAX_REGIONS_128");
-			excludes.push_back("MAX_REGIONS_256");
-			excludes.push_back("MAX_REGIONS_512");
-			excludes.push_back("MAX_REGIONS_1024");
-			break;
-		case MAX_REGIONS_128:
-			excludes.push_back("MAX_REGIONS_64");
-			excludes.push_back("MAX_REGIONS_256");
-			excludes.push_back("MAX_REGIONS_512");
-			excludes.push_back("MAX_REGIONS_1024");
-			break;
-		case MAX_REGIONS_256:
-			excludes.push_back("MAX_REGIONS_64");
-			excludes.push_back("MAX_REGIONS_128");
-			excludes.push_back("MAX_REGIONS_512");
-			excludes.push_back("MAX_REGIONS_1024");
-			break;
-		case MAX_REGIONS_512:
-			excludes.push_back("MAX_REGIONS_64");
-			excludes.push_back("MAX_REGIONS_128");
-			excludes.push_back("MAX_REGIONS_256");
-			excludes.push_back("MAX_REGIONS_1024");
-			break;
-		case MAX_REGIONS_1024:
-			excludes.push_back("MAX_REGIONS_64");
-			excludes.push_back("MAX_REGIONS_128");
-			excludes.push_back("MAX_REGIONS_256");
-			excludes.push_back("MAX_REGIONS_512");
-			break;
-	}
+	PackedStringArray excludes;
 	if (_world_background != NONE) {
 		excludes.push_back("NONE_FUNCTIONS");
 		excludes.push_back("NONE_CHECK");
@@ -189,28 +153,6 @@ String Terrain3DMaterial::_generate_shader_code() const {
 		excludes.push_back("WORLD_NOISE_FUNCTIONS");
 		excludes.push_back("WORLD_NOISE_VERTEX");
 		excludes.push_back("WORLD_NOISE_FRAGMENT");
-	}
-	switch (_texture_filtering) {
-		case LINEAR_ANISOTROPIC:
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
-			break;
-		case LINEAR:
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
-			break;
-		case NEAREST_ANISOTROPIC:
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
-			break;
-		case NEAREST:
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
-			break;
 	}
 	if (!_auto_shader_enabled) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
@@ -258,131 +200,9 @@ String Terrain3DMaterial::_generate_shader_code() const {
 	return shader;
 }
 
-// Ripped from ShaderPreprocessor::CommentRemover::strip()
-String Terrain3DMaterial::_strip_comments(const String &p_shader) const {
-	Vector<char32_t> stripped;
-	String code = p_shader;
-	int index = 0;
-	int line = 0;
-	int comment_line_open = 0;
-	int comments_open = 0;
-	int strings_open = 0;
-	const char32_t CURSOR = 0xFFFF;
-
-	// Embedded supporting functions
-
-	auto peek = [&]() { return (index < code.length()) ? code[index] : 0; };
-
-	auto advance = [&](char32_t p_what) {
-		while (index < code.length()) {
-			char32_t c = code[index++];
-			if (c == '\n') {
-				line++;
-				stripped.push_back('\n');
-			}
-			if (c == p_what) {
-				return true;
-			}
-		}
-		return false;
-	};
-
-	auto vector_to_string = [](const Vector<char32_t> &p_v, int p_start = 0, int p_end = -1) {
-		const int stop = (p_end == -1) ? p_v.size() : p_end;
-		const int count = stop - p_start;
-		String result;
-		result.resize(count + 1);
-		for (int i = 0; i < count; i++) {
-			result[i] = p_v[p_start + i];
-		}
-		result[count] = 0; // Ensure string is null terminated for length() to work.
-		return result;
-	};
-
-	// Main function
-
-	while (index < code.length()) {
-		char32_t c = code[index++];
-		if (c == CURSOR) {
-			// Cursor. Maintain.
-			stripped.push_back(c);
-		} else if (c == '"') {
-			if (strings_open <= 0) {
-				strings_open++;
-			} else {
-				strings_open--;
-			}
-			stripped.push_back(c);
-		} else if (c == '/' && strings_open == 0) {
-			char32_t p = peek();
-			if (p == '/') { // Single line comment.
-				advance('\n');
-			} else if (p == '*') { // Start of a block comment.
-				index++;
-				comment_line_open = line;
-				comments_open++;
-				while (advance('*')) {
-					if (peek() == '/') { // End of a block comment.
-						comments_open--;
-						index++;
-						break;
-					}
-				}
-			} else {
-				stripped.push_back(c);
-			}
-		} else if (c == '*' && strings_open == 0) {
-			if (peek() == '/') { // Unmatched end of a block comment.
-				comment_line_open = line;
-				comments_open--;
-			} else {
-				stripped.push_back(c);
-			}
-		} else if (c == '\n') {
-			line++;
-			stripped.push_back(c);
-		} else {
-			stripped.push_back(c);
-		}
-	}
-	return vector_to_string(stripped);
-}
-
 String Terrain3DMaterial::_generate_buffer_shader_code() const {
 	LOG(INFO, "Generating default displacement buffer shader code");
-	Array excludes;
-	switch (_max_regions) {
-		case MAX_REGIONS_64:
-			excludes.push_back("MAX_REGIONS_128");
-			excludes.push_back("MAX_REGIONS_256");
-			excludes.push_back("MAX_REGIONS_512");
-			excludes.push_back("MAX_REGIONS_1024");
-			break;
-		case MAX_REGIONS_128:
-			excludes.push_back("MAX_REGIONS_64");
-			excludes.push_back("MAX_REGIONS_256");
-			excludes.push_back("MAX_REGIONS_512");
-			excludes.push_back("MAX_REGIONS_1024");
-			break;
-		case MAX_REGIONS_256:
-			excludes.push_back("MAX_REGIONS_64");
-			excludes.push_back("MAX_REGIONS_128");
-			excludes.push_back("MAX_REGIONS_512");
-			excludes.push_back("MAX_REGIONS_1024");
-			break;
-		case MAX_REGIONS_512:
-			excludes.push_back("MAX_REGIONS_64");
-			excludes.push_back("MAX_REGIONS_128");
-			excludes.push_back("MAX_REGIONS_256");
-			excludes.push_back("MAX_REGIONS_1024");
-			break;
-		case MAX_REGIONS_1024:
-			excludes.push_back("MAX_REGIONS_64");
-			excludes.push_back("MAX_REGIONS_128");
-			excludes.push_back("MAX_REGIONS_256");
-			excludes.push_back("MAX_REGIONS_512");
-			break;
-	}
+	PackedStringArray excludes;
 	if (_world_background != NONE) {
 		excludes.push_back("NONE_FUNCTIONS");
 		excludes.push_back("NONE_CHECK");
@@ -391,28 +211,6 @@ String Terrain3DMaterial::_generate_buffer_shader_code() const {
 		excludes.push_back("FLAT_UNIFORMS");
 		excludes.push_back("FLAT_FUNCTIONS");
 		excludes.push_back("FLAT_FRAGMENT");
-	}
-	switch (_texture_filtering) {
-		case LINEAR_ANISOTROPIC:
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
-			break;
-		case LINEAR:
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
-			break;
-		case NEAREST_ANISOTROPIC:
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
-			break;
-		case NEAREST:
-			excludes.push_back("TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR");
-			excludes.push_back("TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC");
-			break;
 	}
 	if (!_auto_shader_enabled) {
 		excludes.push_back("AUTO_SHADER_UNIFORMS");
@@ -425,174 +223,150 @@ String Terrain3DMaterial::_generate_buffer_shader_code() const {
 	return shader;
 }
 
+// Insert compile-time settings as defines after shader_type
+String Terrain3DMaterial::_inject_defines(const String &p_shader) const {
+	Ref<RegEx> regex = RegEx::create_from_string("(?m)^\\s*shader_type.*?;");
+	Ref<RegExMatch> match = regex->search(p_shader);
+	if (match.is_null()) {
+		return p_shader;
+	}
+
+	PackedStringArray defines;
+
+	switch (_texture_filtering) {
+		case LINEAR_ANISOTROPIC:
+			defines.push_back("#define FILTER_LINEAR");
+			defines.push_back("#define FILTER_METHOD filter_linear_mipmap_anisotropic");
+			break;
+		case LINEAR:
+			defines.push_back("#define FILTER_LINEAR");
+			defines.push_back("#define FILTER_METHOD filter_linear_mipmap");
+			break;
+		case NEAREST_ANISOTROPIC:
+			defines.push_back("#define FILTER_NEAREST");
+			defines.push_back("#define FILTER_METHOD filter_nearest_mipmap_anisotropic");
+			break;
+		case NEAREST:
+			defines.push_back("#define FILTER_NEAREST");
+			defines.push_back("#define FILTER_METHOD filter_nearest_mipmap");
+			break;
+	}
+
+	defines.push_back("#define MAX_REGIONS " + itos(_max_regions));
+
+	if (_auto_shader_enabled) {
+		defines.push_back("#define AUTO_SHADER");
+	}
+
+	return p_shader.insert(match->get_end(), "\n" + String("\n").join(defines));
+}
+
+// Replace editor markers with editor declarations and debug views
 String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
-	String shader = _strip_comments(p_shader);
-
-	// Insert after render_mode
-	Ref<RegEx> regex;
-	regex.instantiate();
-	regex->compile("render_mode.*;?");
-	Ref<RegExMatch> match = regex->search(shader);
-	int idx = match.is_valid() ? match->get_end() : -1;
-	if (idx < 0) {
-		LOG(DEBUG, "No render mode; cannot inject editor code");
-		return shader;
+	const String globals_marker = "//INSERT: EDITOR_GLOBALS";
+	const String fragment_marker = "//INSERT: EDITOR_FRAGMENT";
+	if (!p_shader.contains(globals_marker) || !p_shader.contains(fragment_marker)) {
+		LOG(WARN, "Main shader file needs ", globals_marker, " and ", fragment_marker, " for editor tools and debug views");
 	}
-	Array insert_names;
 
-	// Whilst this currently does nothing, it can serve as placeholder for future refactor
-	// when using pre-processor headers to control shader features.
-	//for (int i = 0; i < insert_names.size(); i++) {
-	//	String insert = _shader_code[insert_names[i]];
-	//	shader = shader.insert(idx, "\n\n" + insert);
-	//	idx += insert.length();
-	//}
-	//insert_names.clear();
+	Terrain3DEditor *editor = _terrain ? _terrain->get_editor() : nullptr;
+	Terrain3DEditor::Tool tool = editor ? editor->get_tool() : Terrain3DEditor::TOOL_MAX;
 
-	// Insert before fragment()
-	regex->compile("void\\s+fragment\\s*\\(");
-	match = regex->search(shader);
-	idx = match.is_valid() ? match->get_start() - 1 : -1;
-	if (idx < 0) {
-		LOG(DEBUG, "No void fragment(); cannot inject editor code");
-		return shader;
-	}
-	if (_terrain && _terrain->get_editor()) {
-		insert_names.push_back("EDITOR_DECAL_SETUP");
+	PackedStringArray globals;
+	if (editor) {
+		globals.push_back(_shader_code["EDITOR_DECAL_SETUP"]);
 	}
 	if (_debug_view_heightmap) {
-		insert_names.push_back("DEBUG_HEIGHTMAP_SETUP");
+		globals.push_back(_shader_code["DEBUG_HEIGHTMAP_SETUP"]);
 	}
 	if (_show_contours) {
-		insert_names.push_back("OVERLAY_CONTOURS_SETUP");
+		globals.push_back(_shader_code["OVERLAY_CONTOURS_SETUP"]);
 	}
 	if (_show_slope) {
-		insert_names.push_back("OVERLAY_SLOPE_SETUP");
-	}
-	// Apply pending inserts
-	for (const String &name : insert_names) {
-		String insert = _shader_code[name];
-		shader = shader.insert(idx, "\n" + insert);
-		idx += insert.length();
-	}
-	insert_names.clear();
-
-	// Insert at the end of `fragment(){ }`
-	// Check for each nested {} pair until the closing } is found.
-	regex->compile("void\\s*fragment\\s*\\(\\s*\\)\\s*{");
-	match = regex->search(shader);
-	idx = -1;
-	if (match.is_valid()) {
-		int start_idx = match->get_end() - 1;
-		int pair = 0;
-		for (int i = start_idx; i < shader.length(); i++) {
-			if (shader[i] == '{') {
-				pair++;
-			} else if (shader[i] == '}') {
-				pair--;
-			}
-			if (pair == 0) {
-				idx = i;
-				break;
-			}
-		}
-	}
-	if (idx < 0) {
-		LOG(DEBUG, "No ending bracket; cannot inject editor code");
-		return shader;
+		globals.push_back(_shader_code["OVERLAY_SLOPE_SETUP"]);
 	}
 
-	// Debug Views
+	PackedStringArray fragment;
 	if (_debug_view_checkered) {
-		insert_names.push_back("DEBUG_CHECKERED");
+		fragment.push_back(_shader_code["DEBUG_CHECKERED"]);
 	}
 	if (_debug_view_grey) {
-		insert_names.push_back("DEBUG_GREY");
+		fragment.push_back(_shader_code["DEBUG_GREY"]);
 	}
 	if (_debug_view_heightmap) {
-		insert_names.push_back("DEBUG_HEIGHTMAP");
+		fragment.push_back(_shader_code["DEBUG_HEIGHTMAP"]);
 	}
 	if (_debug_view_jaggedness) {
-		insert_names.push_back("DEBUG_JAGGEDNESS");
+		fragment.push_back(_shader_code["DEBUG_JAGGEDNESS"]);
 	}
 	if (_debug_view_autoshader) {
-		insert_names.push_back("DEBUG_AUTOSHADER");
+		fragment.push_back(_shader_code["DEBUG_AUTOSHADER"]);
 	}
 	if (_debug_view_control_texture) {
-		insert_names.push_back("DEBUG_CONTROL_TEXTURE");
+		fragment.push_back(_shader_code["DEBUG_CONTROL_TEXTURE"]);
 	}
 	if (_debug_view_control_blend) {
-		insert_names.push_back("DEBUG_CONTROL_BLEND");
+		fragment.push_back(_shader_code["DEBUG_CONTROL_BLEND"]);
 	}
 	if (_debug_view_control_angle) {
-		insert_names.push_back("DEBUG_CONTROL_ANGLE");
+		fragment.push_back(_shader_code["DEBUG_CONTROL_ANGLE"]);
 	}
 	if (_debug_view_control_scale) {
-		insert_names.push_back("DEBUG_CONTROL_SCALE");
+		fragment.push_back(_shader_code["DEBUG_CONTROL_SCALE"]);
 	}
 	if (_debug_view_colormap) {
-		insert_names.push_back("DEBUG_COLORMAP");
+		fragment.push_back(_shader_code["DEBUG_COLORMAP"]);
 	}
 	if (_debug_view_roughmap) {
-		insert_names.push_back("DEBUG_ROUGHMAP");
+		fragment.push_back(_shader_code["DEBUG_ROUGHMAP"]);
 	}
-	// PBR views
 	if (_pbr_view_tex_albedo) {
-		insert_names.push_back("PBR_TEXTURE_ALBEDO");
+		fragment.push_back(_shader_code["PBR_TEXTURE_ALBEDO"]);
 	}
 	if (_pbr_view_tex_height) {
-		insert_names.push_back("PBR_TEXTURE_HEIGHT");
+		fragment.push_back(_shader_code["PBR_TEXTURE_HEIGHT"]);
 	}
 	if (_pbr_view_tex_normal) {
-		insert_names.push_back("PBR_TEXTURE_NORMAL");
+		fragment.push_back(_shader_code["PBR_TEXTURE_NORMAL"]);
 	}
 	if (_pbr_view_tex_ao) {
-		insert_names.push_back("PBR_TEXTURE_AO");
+		fragment.push_back(_shader_code["PBR_TEXTURE_AO"]);
 	}
 	if (_pbr_view_tex_rough) {
-		insert_names.push_back("PBR_TEXTURE_ROUGHNESS");
+		fragment.push_back(_shader_code["PBR_TEXTURE_ROUGHNESS"]);
 	}
 	if (_debug_view_displacement_buffer) {
-		insert_names.push_back("DEBUG_DISPLACEMENT_BUFFER");
+		fragment.push_back(_shader_code["DEBUG_DISPLACEMENT_BUFFER"]);
 	}
-	// Overlays
 	if (_show_contours) {
-		insert_names.push_back("OVERLAY_CONTOURS_RENDER");
+		fragment.push_back(_shader_code["OVERLAY_CONTOURS_RENDER"]);
 	}
 	if (_show_slope) {
-		insert_names.push_back("OVERLAY_SLOPE_RENDER");
+		fragment.push_back(_shader_code["OVERLAY_SLOPE_RENDER"]);
 	}
-	if (_show_navigation || (_terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
-		insert_names.push_back("EDITOR_NAVIGATION");
+	if (_show_navigation || tool == Terrain3DEditor::NAVIGATION) {
+		fragment.push_back(_shader_code["EDITOR_NAVIGATION"]);
 	}
 	if (_show_instancer_grid) {
-		insert_names.push_back("OVERLAY_INSTANCER_GRID");
+		fragment.push_back(_shader_code["OVERLAY_INSTANCER_GRID"]);
 	}
 	if (_show_vertex_grid) {
-		insert_names.push_back("OVERLAY_VERTEX_GRID");
+		fragment.push_back(_shader_code["OVERLAY_VERTEX_GRID"]);
 	}
-	if (_show_region_grid || (_terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::REGION)) {
-		insert_names.push_back("EDITOR_REGION_GRID");
+	if (_show_region_grid || tool == Terrain3DEditor::REGION) {
+		fragment.push_back(_shader_code["EDITOR_REGION_GRID"]);
 	}
-	if (_terrain && _terrain->get_editor()) {
-		insert_names.push_back("EDITOR_DECAL_RENDER");
+	if (editor) {
+		fragment.push_back(_shader_code["EDITOR_DECAL_RENDER"]);
 	}
-	// Apply pending inserts
-	for (const String &name : insert_names) {
-		String insert = _shader_code[name];
-		shader = shader.insert(idx, "\n" + insert);
-		idx += insert.length();
-	}
-	return shader;
+
+	return p_shader.replace(globals_marker, String("\n").join(globals)).replace(fragment_marker, String("\n").join(fragment));
 }
 
 void Terrain3DMaterial::_update_shader() {
 	IS_INIT(VOID);
 	LOG(INFO, "Updating shader");
 	String code;
-	Ref<RegEx> regex;
-	Ref<RegExMatch> match;
-	regex.instantiate();
 	// Terrain Material
 	if (_shader_override_enabled && _shader_override.is_valid()) {
 		if (_shader_override->get_code().is_empty()) {
@@ -606,7 +380,9 @@ void Terrain3DMaterial::_update_shader() {
 	} else {
 		code = _generate_shader_code();
 	}
-	_shader->set_code(_inject_editor_code(code));
+	code = _inject_defines(code);
+	code = _inject_editor_code(code);
+	_shader->set_code(code);
 	RS->material_set_shader(_material, get_shader_rid());
 	LOG(DEBUG, "Material rid: ", _material, ", shader rid: ", get_shader_rid());
 
@@ -624,7 +400,7 @@ void Terrain3DMaterial::_update_shader() {
 		} else {
 			code = _generate_buffer_shader_code();
 		}
-		_buffer_shader->set_code(code);
+		_buffer_shader->set_code(_inject_defines(code));
 		RS->material_set_shader(_buffer_material, get_buffer_shader_rid());
 		LOG(DEBUG, "Buffer Material rid: ", _buffer_material, ", buffer shader rid: ", get_buffer_shader_rid());
 	} else {

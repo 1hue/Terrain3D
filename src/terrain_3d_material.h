@@ -112,10 +112,10 @@ private:
 	// Functions
 	void _preload_shaders();
 	void _parse_shader(const String &p_shader, const String &p_name);
-	String _apply_inserts(const String &p_shader, const Array &p_excludes = Array()) const;
+	String _apply_inserts(const String &p_shader, const PackedStringArray &p_excludes = PackedStringArray()) const;
 	String _generate_shader_code() const;
 	String _generate_buffer_shader_code() const;
-	String _strip_comments(const String &p_shader) const;
+	String _inject_defines(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
 	void _update_uniforms(const RID &p_material, const uint32_t p_update = UNIFORMS_ONLY);
