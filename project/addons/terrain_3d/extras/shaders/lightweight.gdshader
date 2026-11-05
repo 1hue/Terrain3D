@@ -28,9 +28,9 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #define DECODE_HOLE(control) bool(control >>2u & 0x1u)
 
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
-    #define fma(a, b, c) ((a) * (b) + (c))
-    #define dFdxCoarse(a) dFdx(a)
-    #define dFdyCoarse(a) dFdy(a)
+	#define fma(a, b, c) ((a) * (b) + (c))
+	#define dFdxCoarse(a) dFdx(a)
+	#define dFdyCoarse(a) dFdy(a)
 #endif
 
 // Private uniforms
@@ -114,8 +114,8 @@ ivec3 get_index_coord(const vec2 uv) {
 	// Editor dummies are negative; keep them != -1 so the shader still sees a region
 	int is_dummy = bounds * int(map_val < 0);
 	int layer_index = is_region * raw_index
-	               + is_dummy * (map_val - 1)
-	               - (1 - is_region - is_dummy);
+				   + is_dummy * (map_val - 1)
+				   - (1 - is_region - is_dummy);
 	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
@@ -130,8 +130,8 @@ vec3 get_index_uv(const vec2 uv2) {
 	int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
 	int is_dummy = bounds * int(map_val < 0);
 	int layer_index = is_region * raw_index
-	               + is_dummy * (map_val - 1)
-	               - (1 - is_region - is_dummy);
+				   + is_dummy * (map_val - 1)
+				   - (1 - is_region - is_dummy);
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
 }
 
@@ -148,9 +148,9 @@ bool is_none_bg(const vec2 uv) {
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
 float check_region(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
-    int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-    int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
-    int is_valid = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+	int is_valid = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
 	return float(is_valid);
 }
 
