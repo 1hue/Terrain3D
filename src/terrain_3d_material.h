@@ -50,6 +50,7 @@ private:
 	RID _material;
 	Ref<Shader> _shader; // Active shader
 	Dictionary _shader_code; // All loaded shader and INSERT code
+	mutable uint32_t _marker_warning_hash = 0; // Shader code last warned about missing editor markers
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override; // User's shader we copy code from
 	mutable TypedArray<StringName> _active_params; // All public shader params in the current shader
