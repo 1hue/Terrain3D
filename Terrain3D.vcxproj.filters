@@ -190,9 +190,6 @@
     <None Include="src\shaders\editor_functions.glsl">
       <Filter>4. Shaders</Filter>
     </None>
-    <None Include="src\shaders\samplers.glsl">
-      <Filter>4. Shaders</Filter>
-    </None>
     <None Include="doc\docs\texture_painting.md">
       <Filter>2. Docs</Filter>
     </None>
@@ -291,9 +288,6 @@
     </None>
     <None Include="doc\docs\contributing.md">
       <Filter>2. Docs</Filter>
-    </None>
-    <None Include="src\shaders\max_regions.glsl">
-      <Filter>4. Shaders</Filter>
     </None>
     <None Include=".github\actions\load-cache\action.yml">
       <Filter>1. Project Files</Filter>

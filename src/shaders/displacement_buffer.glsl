@@ -45,20 +45,12 @@ uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1./region_size
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
-//INSERT: MAX_REGIONS_64
-//INSERT: MAX_REGIONS_128
-//INSERT: MAX_REGIONS_256
-//INSERT: MAX_REGIONS_512
-//INSERT: MAX_REGIONS_1024
+uniform vec2 _region_locations[MAX_REGIONS];
 uniform float _texture_uv_scale_array[32];
 uniform vec2 _texture_detile_array[32];
 uniform vec2 _texture_displacement_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
-//INSERT: TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC
-//INSERT: TEXTURE_SAMPLERS_LINEAR
-//INSERT: TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC
-//INSERT: TEXTURE_SAMPLERS_NEAREST
 uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
 group_uniforms;

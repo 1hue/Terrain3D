@@ -55,11 +55,7 @@ uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1./region_size
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
-//INSERT: MAX_REGIONS_64
-//INSERT: MAX_REGIONS_128
-//INSERT: MAX_REGIONS_256
-//INSERT: MAX_REGIONS_512
-//INSERT: MAX_REGIONS_1024
+uniform vec2 _region_locations[MAX_REGIONS];
 uniform float _texture_normal_depth_array[32];
 uniform float _texture_ao_strength_array[32];
 uniform float _texture_ao_affect_array[32];
@@ -69,10 +65,6 @@ uniform vec2 _texture_detile_array[32];
 uniform vec4 _texture_color_array[32];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
-//INSERT: TEXTURE_SAMPLERS_LINEAR_ANISOTROPIC
-//INSERT: TEXTURE_SAMPLERS_LINEAR
-//INSERT: TEXTURE_SAMPLERS_NEAREST_ANISOTROPIC
-//INSERT: TEXTURE_SAMPLERS_NEAREST
 uniform highp sampler2DArray _color_maps : source_color, FILTER_METHOD, repeat_disable;
 uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
@@ -181,6 +173,8 @@ float interpolated_height(vec2 pos) {
 //INSERT: NONE_FUNCTIONS
 //INSERT: FLAT_FUNCTIONS
 //INSERT: WORLD_NOISE_FUNCTIONS
+
+//INSERT: EDITOR_GLOBALS
 
 void vertex() {
 	// Save Camera Position to varying for access in later functions
@@ -658,6 +652,7 @@ void fragment() {
 //INSERT: OUTPUT_NORMAL_MAP
 //INSERT: OUTPUT_AMBIENT_OCCLUSION
 
+	//INSERT: EDITOR_FRAGMENT
 }
 
 )"

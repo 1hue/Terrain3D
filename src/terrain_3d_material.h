@@ -50,6 +50,7 @@ private:
 	RID _material;
 	Ref<Shader> _shader; // Active shader
 	Dictionary _shader_code; // All loaded shader and INSERT code
+	mutable uint32_t _marker_warning_hash = 0; // Shader code last warned about missing editor markers
 	bool _shader_override_enabled = false;
 	Ref<Shader> _shader_override; // User's shader we copy code from
 	mutable TypedArray<StringName> _active_params; // All public shader params in the current shader
@@ -112,10 +113,10 @@ private:
 	// Functions
 	void _preload_shaders();
 	void _parse_shader(const String &p_shader, const String &p_name);
-	String _apply_inserts(const String &p_shader, const Array &p_excludes = Array()) const;
+	String _apply_inserts(const String &p_shader, const PackedStringArray &p_excludes = PackedStringArray()) const;
 	String _generate_shader_code() const;
 	String _generate_buffer_shader_code() const;
-	String _strip_comments(const String &p_shader) const;
+	String _inject_defines(const String &p_shader) const;
 	String _inject_editor_code(const String &p_shader) const;
 	void _update_shader();
 	void _update_uniforms(const RID &p_material, const uint32_t p_update = UNIFORMS_ONLY);
